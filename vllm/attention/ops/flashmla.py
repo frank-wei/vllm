@@ -105,7 +105,7 @@ def flash_mla_with_kvcache(
         descale_q,
         descale_k,
     )
-
+    logger.info(f"FlashMLA: {out.shape}, {softmax_lse.shape}")
     # Note(hc): need revisit when we support DCP with decode query_len > 1.
     return out.squeeze(1), softmax_lse.squeeze(-1)
 

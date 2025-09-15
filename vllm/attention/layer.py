@@ -179,6 +179,7 @@ class Attention(nn.Module, AttentionLayerBase):
             self.attn_backend = attn_backend
 
         impl_cls = self.attn_backend.get_impl_cls()
+        logger.info(f"Attention backend: init: {num_heads=}, {head_size=}")
         self.impl = impl_cls(num_heads, head_size, scale, num_kv_heads,
                              alibi_slopes, sliding_window, kv_cache_dtype,
                              logits_soft_cap, attn_type,
@@ -215,7 +216,7 @@ class Attention(nn.Module, AttentionLayerBase):
             torch.tensor([]) for _ in range(get_current_vllm_config(
             ).parallel_config.pipeline_parallel_size)
         ]
-
+        logger.info(f"Attention backend: {len(self.kv_cache)=}, {self.kv_cache[0].shape=}")
         self.q_range = torch.tensor(envs.Q_SCALE_CONSTANT, dtype=torch.float32)
         self.k_range = torch.tensor(envs.K_SCALE_CONSTANT, dtype=torch.float32)
         self.v_range = torch.tensor(envs.V_SCALE_CONSTANT, dtype=torch.float32)
@@ -243,6 +244,9 @@ class Attention(nn.Module, AttentionLayerBase):
             attn_metadata = get_forward_context().attn_metadata
             if attn_metadata.enable_kv_scales_calculation:
                 self.calc_kv_scales(query, key, value)
+        logger.info(f"Attention backend: {self.attn_backend}")
+        logger.info(f"Attention {query.shape}, {key.shape}, {value.shape}")
+        logger.info(f"  {self.use_output=}, {self.use_direct_call=}, {self.use_mla=}")
         if self.use_output:
             output_shape = (output_shape
                             if output_shape is not None else query.shape)
@@ -504,6 +508,7 @@ def unified_attention_with_output(
         attn_metadata = attn_metadata[layer_name]
     self = forward_context.no_compile_layers[layer_name]
     kv_cache = self.kv_cache[forward_context.virtual_engine]
+    logger.info(f"unified attention with output: {self.impl.forward=}, {kv_cache.shape=}")
     self.impl.forward(self,
                       query,
                       key,

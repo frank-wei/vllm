@@ -147,6 +147,7 @@ class RemoteOpenAIServer:
 
         # download the model before starting the server to avoid timeout
         is_local = os.path.isdir(model)
+        print(f"==5:, {vllm_serve_args}")
         if not is_local:
             engine_args = AsyncEngineArgs.from_cli_args(args)
             model_config = engine_args.create_model_config()
@@ -156,7 +157,7 @@ class RemoteOpenAIServer:
             model_loader.download_model(model_config)
 
         self._start_server(model, vllm_serve_args, env_dict)
-        max_wait_seconds = max_wait_seconds or 240
+        max_wait_seconds = max_wait_seconds or 10
         self._wait_for_server(url=self.url_for("health"),
                               timeout=max_wait_seconds)
 
@@ -184,6 +185,7 @@ class RemoteOpenAIServer:
             try:
                 if client.get(url).status_code == 200:
                     break
+                # print(f"===7 not started?")
             except Exception:
                 # this exception can only be raised by requests.get,
                 # which means the server is not ready yet.
@@ -410,13 +412,13 @@ def _test_chat(
             "text": prompt
         }]
     }]
-
     # test with text prompt
     chat_response = client.chat.completions.create(model=model,
                                                    messages=messages,
-                                                   max_tokens=5,
+                                                   max_tokens=2,
                                                    temperature=0.0)
 
+    print(f"test_chat with prompt: {prompt}")
     results.append({
         "test": "completion_close",
         "text": chat_response.choices[0].message.content,
@@ -602,6 +604,7 @@ def compare_all_settings(model: str,
             args = args + ["--load-format", envs.VLLM_TEST_FORCE_LOAD_FORMAT]
         compare_results: list = []
         results = ref_results if i == 0 else compare_results
+        print(f"===========0 args:{args}")
         with RemoteOpenAIServer(model,
                                 args,
                                 env_dict=env,
@@ -617,7 +620,7 @@ def compare_all_settings(model: str,
                 "id": served_model.id,
                 "root": served_model.root,
             })
-
+            print(f"===========1")
             if method == "generate":
                 results += _test_completion(client, model, prompt, token_ids)
             elif method == "generate_close":
@@ -633,7 +636,8 @@ def compare_all_settings(model: str,
                 results += _test_embeddings(client, model, prompt)
             else:
                 raise ValueError(f"Unknown method: {method}")
-
+            print(f"===========results:{results}")
+            exit()
             if i > 0:
                 # if any setting fails, raise an error early
                 ref_args = all_args[0]

@@ -957,7 +957,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
         self.qk_head_dim = qk_head_dim
         self.v_head_dim = v_head_dim
         self.kv_b_proj = kv_b_proj
-
+        logger.info(f"={use_flashinfer_prefill()=}, {use_cudnn_prefill()=}")
         if use_flashinfer_prefill():
             logger.debug_once("Using FlashInfer prefill for MLA")
             self._run_prefill_context_chunk = self._run_prefill_context_chunk_fi
@@ -970,6 +970,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             self._run_prefill_new_tokens = self._run_prefill_new_tokens_cudnn
             self._pad_v = False
         else:  # Use FlashAttention
+            logger.info("Using FlashAttention prefill for MLA")
             logger.debug_once("Using FlashAttention prefill for MLA")
             self._run_prefill_context_chunk = self._run_prefill_context_chunk_fa
             self._run_prefill_new_tokens = self._run_prefill_new_tokens_fa
@@ -1134,6 +1135,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
 
     def _v_up_proj(self, x):
         # Convert from (B, N, L) to (N, B, L)
+        logger.info(f"===_v_up_proj: {x.shape=}, {self.num_heads=}, {self.kv_lora_rank=}")
         x = x.view(-1, self.num_heads, self.kv_lora_rank).transpose(0, 1)
         if is_rocm_aiter_fp8bmm_enabled():
             # Multiply + Transpose (N, B, L) x (N, L, V)->(N, B, V)->(B, N, V)
@@ -1440,7 +1442,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             v=v,
             return_softmax_lse=has_context,
         )
-
+        logger.info(f"==_forward_prefill1: {q.shape=}, {output.shape=}, {has_context=}")
         if has_context:
             suffix_output, suffix_lse = output
             if self.dcp_world_size > 1:
@@ -1448,6 +1450,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
                     self._context_parallel_compute_prefill_context(
                     q, kv_c_and_k_pe_cache, attn_metadata,
                     k_scale=None, dcp_world_size=self.dcp_world_size)
+                logger.info(f"==_forward_prefill2: {q.shape=}, {kv_c_and_k_pe_cache.shape=}, {attn_metadata=}, {k_scale=}, {self.dcp_world_size=}")
             else:
                 context_output, context_lse = \
                     self._compute_prefill_context(
@@ -1465,7 +1468,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
         # unpad if necessary
         if self._pad_v:
             output = output[..., :v.shape[-1]]
-
+        logger.info(f"prefill output shape: {output.shape}")
         return output.flatten(start_dim=-2)
 
     @abstractmethod
@@ -1496,11 +1499,12 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             raise NotImplementedError(
                 "fused output quantization is not yet supported"
                 " for MLACommonImpl")
-
+        logger.info(f"======MLACommonImpl forward ======")
         if attn_metadata is None:
             # The zero fill is required when used with DP + EP
             # to ensure all ranks within a DP group compute the
             # same expert outputs.
+            logger.info(f"======MLACommonImpl forward end as attn_metadata is None======")
             return output.fill_(0)
 
         if self.dcp_world_size is None:
@@ -1530,7 +1534,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
         prefill_q = q[num_decode_tokens:]
         prefill_k_pe = k_pe[num_decode_tokens:]
         prefill_k_c_normed = k_c_normed[num_decode_tokens:]
-
+        logger.info(f"MLACommonImpl before concat_and_cache_mla: {kv_cache.shape=}, {k_c_normed.shape=}, {k_pe.shape=}")
         # write the latent and rope to kv cache
         if kv_cache.numel() > 0:
             ops.concat_and_cache_mla(
@@ -1546,11 +1550,13 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             kv_cache = kv_cache.view(current_platform.fp8_dtype())
 
         if has_prefill:
+            logger.info(f"MLACommonImpl: goes to prefill")
             output[num_decode_tokens:] = self._forward_prefill(
                 prefill_q, prefill_k_c_normed, prefill_k_pe, kv_cache,
                 attn_metadata, layer._k_scale)
 
         if has_decode:
+            logger.info(f"MLACommonImpl: goes to decode")
             assert attn_metadata.decode is not None
             decode_q_nope, decode_q_pe = decode_q.split(
                 [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
@@ -1583,23 +1589,26 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
                         [q_pe_shape[0], q_pe_shape[1] * q_pe_shape[2]]),
                     layer._q_scale)
                 decode_q_pe = decode_q_pe.reshape(q_pe_shape)
-
             decode_q = (decode_ql_nope, decode_q_pe)
+            logger.info(f"MLACommonImpl: {decode_ql_nope.shape=}, {decode_q_pe.shape=},  {self.W_UK_T.shape=}")
             if self.dcp_world_size > 1:
                 assert not fp8_attention, "DCP not support fp8 kvcache now."
                 # concatenate decode_ql_nope and decode_q_pe -> (B, N, L + P)
                 decode_q = torch.cat(decode_q, dim=-1)
+                logger.info(f"MLACommonImpl if dcp>1, after cat(decode_ql_nope,decode_q_pe, dim=-1): {decode_q.shape=}")
                 # decode_q do allgather in head dim.
                 decode_q = get_dcp_group().all_gather(decode_q, dim=1)
 
             # call decode attn
+            logger.info(f"MLACommonImpl: {decode_q.shape=}, {kv_cache.shape=}")
             attn_out, lse = self._forward_decode(decode_q, kv_cache,
                                                  attn_metadata, layer)
-
+            logger.info(f"MLACommonImpl before cor: {attn_out.shape=}, {lse.shape=}")
             # recorect dcp attn_out with lse.
             if self.dcp_world_size > 1:
                 attn_out = cp_lse_ag_out_rs(attn_out, lse, get_dcp_group())
 
             # v_up projection
+            logger.info(f"MLACommonImpl after cor: {attn_out.shape=}, {lse.shape=}")
             output[:num_decode_tokens] = self._v_up_proj(attn_out)
         return output_padded

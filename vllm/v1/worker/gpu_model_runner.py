@@ -155,6 +155,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         vllm_config: VllmConfig,
         device: torch.device,
     ):
+        logger.info(f"GPUModelRunner: {vllm_config.cache_config=}")
         self.vllm_config = vllm_config
         self.model_config = vllm_config.model_config
         self.cache_config = vllm_config.cache_config
@@ -3173,6 +3174,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             dict[str, torch.Tensor]: A map between layer names to their
             corresponding memory buffer for KV cache.
          """
+        logger.info(f"===_allocate_kv_cache_tensors: {kv_cache_config=}")
         kv_cache_raw_tensors: dict[str, torch.Tensor] = {}
         for kv_cache_tensor in kv_cache_config.kv_cache_tensors:
             tensor = torch.zeros(kv_cache_tensor.size,
@@ -3180,6 +3182,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                                  device=self.device)
             for layer_name in kv_cache_tensor.shared_by:
                 kv_cache_raw_tensors[layer_name] = tensor
+                logger.info(f"===_allocate_kv_cache_tensors: {layer_name} {tensor.shape}")
 
         layer_names = set()
         for group in kv_cache_config.kv_cache_groups:
@@ -3222,6 +3225,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         kv_caches: dict[str, torch.Tensor] = {}
         has_attn, has_mamba = False, False
         for kv_cache_spec, group in self._kv_cache_spec_attn_group_iterator():
+            logger.info(f"""===_reshape_kv_cache_tensors: {kv_cache_spec=}, {group=}""")
             attn_backend = group.backend
             for layer_name in group.layer_names:
                 if layer_name in self.runner_only_attn_layers:
@@ -3235,6 +3239,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                     kv_cache_shape = attn_backend.get_kv_cache_shape(
                         num_blocks, kv_cache_spec.block_size,
                         kv_cache_spec.num_kv_heads, kv_cache_spec.head_size)
+                    logger.info(f"===_reshape_kv_cache_tensors: {layer_name=} {kv_cache_shape=},{num_blocks=},{kv_cache_spec.block_size=},{kv_cache_spec.num_kv_heads=},{kv_cache_spec.head_size=}")
                     dtype = kv_cache_spec.dtype
                     try:
                         kv_cache_stride_order = \
@@ -3406,6 +3411,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                                                  AttentionLayerBase,
                                                  layer_names)
             for layer in layers.values():
+                logger.info(f"===GPUModelRunner: initialize_kv_cache: {layer.impl=}")
                 assert layer.impl.need_to_return_lse_for_decode, (
                     "DCP requires attention impls to return"
                     " the softmax lse for decode, but the impl "
@@ -3447,7 +3453,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             KVCacheSpec: A dictionary mapping layer names to their KV cache
             format. Layers that do not need KV cache are not included.
         """
-
+        logger.info(f"===gpu_model_runner: get_kv_cache_spec: {self.vllm_config.cache_config=}")
         block_size = self.vllm_config.cache_config.block_size
         use_mla = self.vllm_config.model_config.use_mla
         kv_cache_spec: dict[str, KVCacheSpec] = {}

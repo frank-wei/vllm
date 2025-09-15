@@ -32,6 +32,7 @@ class TritonMLABackend(MLACommonBackend):
 
 
 class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
+    can_return_lse_for_decode: bool = True
 
     def __init__(
             self,
@@ -130,7 +131,8 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         assert kv_c_and_k_pe_cache.numel() > 0
         assert attn_metadata.decode is not None
-
+        logger.info(f"TritonMLAImpl._forward_decode000: q.shape={q.shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
+         
         if self.kv_cache_dtype.startswith("fp8"):
             raise NotImplementedError("FP8 Triton MLA not yet supported")
 
@@ -140,11 +142,17 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
         assert isinstance(q, torch.Tensor)
         B = q.shape[0]
         o = torch.zeros(B,
-                        self.num_heads,
+                        # self.num_heads,
+                        q.shape[1],
                         self.kv_lora_rank,
                         dtype=q.dtype,
                         device=q.device)
-
+        lse = torch.zeros(B,
+                        # self.num_heads,
+                        q.shape[1],
+                        dtype=torch.float32,
+                        device=q.device)  
+        logger.info(f"TritonMLAImpl._forward_decode: {o.shape=}, {lse.shape=}")
         num_kv_splits = 4  # TODO: heuristic
 
         # TODO(lucas) Allocate ahead of time
@@ -167,9 +175,11 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
         PAGE_SIZE = kv_c_and_k_pe_cache.size(1)
 
         # Run MQA
-        decode_attention_fwd(q, kv_c_and_k_pe_cache, kv_c_cache, o,
+        logger.info(f"TritonMLAImpl._forward_decode: q.shape={q.shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
+        decode_attention_fwd(q, kv_c_and_k_pe_cache, kv_c_cache, o, lse,
                              attn_metadata.decode.block_table,
                              attn_metadata.decode.seq_lens, attn_logits,
                              num_kv_splits, self.scale, PAGE_SIZE)
-
-        return o, None
+        logger.info(f"==== {lse=}")
+        logger.info(f"TritonMLAImpl._forward_decode: o.shape={o.shape}, lse.shape={lse.shape}, q.shape={q.unsqueeze(1).shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
+        return o, lse

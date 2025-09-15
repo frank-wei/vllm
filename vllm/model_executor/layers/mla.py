@@ -9,7 +9,8 @@ from vllm.attention import Attention
 from vllm.config import CacheConfig
 from vllm.model_executor.custom_op import CustomOp
 from vllm.model_executor.layers.quantization import QuantizationConfig
-
+import logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MLAModules:
@@ -145,7 +146,7 @@ class MultiHeadLatentAttention(CustomOp):
 
         q[..., self.qk_nope_head_dim:], k_pe = self.rotary_emb(
             positions, q[..., self.qk_nope_head_dim:], k_pe)
-
+        logger.info(f" MultiHeadLatentAttention.forward_native: {q.shape=}, {kv_c_normed.shape=},{k_pe.shape=}")
         attn_out = self.mla_attn(
             q,
             kv_c_normed,

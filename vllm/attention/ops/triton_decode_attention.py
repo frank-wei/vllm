@@ -474,6 +474,7 @@ def _decode_grouped_att_m_fwd(
 def _fwd_kernel_stage2(
     Mid_O,
     o,
+    lse,
     B_Seqlen,
     stride_mid_ob,
     stride_mid_oh,
@@ -525,12 +526,19 @@ def _fwd_kernel_stage2(
         acc / e_sum,
         mask=mask_d,
     )
+    lse_val = e_max + tl.log(e_sum)
+    tl.store(
+        lse + cur_batch * stride_obs + cur_head * stride_oh + offs_d,
+        lse_val,
+        mask=mask_d,
+    )
 
 
 def _decode_softmax_reducev_fwd(
     logits,
     q,
     o,
+    lse,
     v_buffer,
     b_seq_len,
     num_kv_splits,
@@ -550,11 +558,13 @@ def _decode_softmax_reducev_fwd(
             "matrix_instr_nonkdim": 16,
             "kpack": 2
         }
-
+    # import torch
+    # lse = torch.empty((batch, head_num), dtype=q.dtype, device=o.device)
     grid = (batch, head_num)
     _fwd_kernel_stage2[grid](
         logits,
         o,
+        lse,
         b_seq_len,
         logits.stride(0),
         logits.stride(1),
@@ -568,6 +578,7 @@ def _decode_softmax_reducev_fwd(
         num_stages=2,
         **extra_kargs,
     )
+    # print(f"====={lse=}")
 
 
 def decode_attention_fwd_normal(
@@ -604,6 +615,7 @@ def decode_attention_fwd_grouped(
     k_buffer,
     v_buffer,
     o,
+    lse,
     req_to_token,
     b_seq_len,
     attn_logits,
@@ -624,7 +636,7 @@ def decode_attention_fwd_grouped(
         page_size,
         logit_cap,
     )
-    _decode_softmax_reducev_fwd(attn_logits, q, o, v_buffer, b_seq_len,
+    _decode_softmax_reducev_fwd(attn_logits, q, o, lse, v_buffer, b_seq_len,
                                 num_kv_splits)
 
 
@@ -633,6 +645,7 @@ def decode_attention_fwd(
     k_buffer,
     v_buffer,
     o,
+    lse,
     req_to_token,
     b_seq_len,
     attn_logits,
@@ -666,6 +679,7 @@ def decode_attention_fwd(
             k_buffer,
             v_buffer,
             o,
+            lse,
             req_to_token,
             b_seq_len,
             attn_logits,

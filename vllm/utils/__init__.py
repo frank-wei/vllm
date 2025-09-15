@@ -2994,6 +2994,7 @@ def bind_kv_cache(
     #    tensor
     # 5. Some models have attention layers that share kv cache with previous
     #    layers, this is specified through shared_kv_cache_layers
+    logger.info(f"bind_kv_cache: =====")
     if shared_kv_cache_layers is None:
         shared_kv_cache_layers = {}
     from vllm.attention import AttentionType
@@ -3014,6 +3015,7 @@ def bind_kv_cache(
         forward_ctx = ctx[layer_name]
         assert len(forward_ctx.kv_cache) == len(kv_cache)
         for ve, ve_kv_cache in enumerate(kv_cache):
+            logger.info(f"bind_kv_cache: {ve=}, {kv_cache_idx=}, {layer_name=}")
             forward_ctx.kv_cache[ve] = ve_kv_cache[kv_cache_idx]
     if shared_kv_cache_layers is not None:
         for layer_name, target_layer_name in shared_kv_cache_layers.items():

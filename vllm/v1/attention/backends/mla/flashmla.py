@@ -184,6 +184,7 @@ class FlashMLAImpl(MLACommonImpl[FlashMLAMetadata]):
             q = torch.cat(q, dim=-1)
 
         assert isinstance(q, torch.Tensor)
+        logger.info(f"FlashMLAImpl._forward_decode: q.shape={q.shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
         o, lse = flash_mla_with_kvcache(
             q=q.unsqueeze(1),  # Add seqlen dim of 1 (decode)
             k_cache=kv_c_and_k_pe_cache.unsqueeze(-2),  # Add head dim of 1
@@ -198,5 +199,8 @@ class FlashMLAImpl(MLACommonImpl[FlashMLAMetadata]):
             descale_q=layer._q_scale.reshape(1),
             descale_k=layer._k_scale.reshape(1),
         )
-
+        # import traceback
+        # traceback.print_stack()
+        logger.info(f"==== {lse=}")
+        logger.info(f"FlashMLAImpl._forward_decode: o.shape={o.shape}, lse.shape={lse.shape}, q.shape={q.unsqueeze(1).shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.unsqueeze(-2).shape}")
         return o, lse

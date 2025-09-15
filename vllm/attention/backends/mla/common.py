@@ -237,7 +237,8 @@ if TYPE_CHECKING:
     from vllm.worker.model_runner import ModelInputForGPUBuilder
 
 is_hip = current_platform.is_rocm()
-
+import logging
+logger = logging.getLogger(__name__)
 
 class MLACommonBackend(AttentionBackend):
 

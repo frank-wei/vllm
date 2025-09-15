@@ -3527,7 +3527,7 @@ class VllmConfig:
     def __post_init__(self):
         """Verify configs are valid & consistent with each other.
         """
-
+        logger.info(f"VLLMConfig post_init: {self.cache_config=}")
         self.try_verify_and_update_config()
 
         if self.model_config is not None:

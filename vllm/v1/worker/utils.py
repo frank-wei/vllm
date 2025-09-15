@@ -15,7 +15,8 @@ from vllm.multimodal.registry import MultiModalRegistry
 from vllm.v1.attention.backends.utils import AttentionMetadataBuilder
 from vllm.v1.core.encoder_cache_manager import compute_mm_encoder_budget
 from vllm.v1.kv_cache_interface import KVCacheGroupSpec
-
+import logging
+logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from vllm.attention.layer import Attention
 
@@ -277,3 +278,4 @@ def bind_kv_cache(
     for layer_name, kv_cache in kv_caches.items():
         # NOTE: Use list because of v0 PP virtual engine.
         forward_context[layer_name].kv_cache = [kv_cache]
+        logger.info(f"Bind kv_cache {layer_name=} to {kv_cache.shape=}")

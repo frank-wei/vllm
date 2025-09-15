@@ -51,7 +51,9 @@ class Worker(WorkerBase):
         distributed_init_method: str,
         is_driver_worker: bool = False,
     ):
-
+        import traceback
+        traceback.print_stack()
+        logger.info(f"gpu_worker: init: {vllm_config.cache_config=}")
         super().__init__(vllm_config=vllm_config,
                          local_rank=local_rank,
                          rank=rank,
@@ -153,6 +155,8 @@ class Worker(WorkerBase):
         self.cache_config.num_cpu_blocks = num_cpu_blocks
 
     def init_device(self):
+        logger.info(f"gpu_worker: init_device: {self.vllm_config=}")
+        logger.info(f"gpu_worker: init_device: {self.vllm_config.cache_config=}")
         if self.device_config.device.type == "cuda":
             # torch.distributed.all_reduce does not free the input tensor until
             # the synchronization point. This causes the memory usage to grow

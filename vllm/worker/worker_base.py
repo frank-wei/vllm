@@ -417,7 +417,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     and self.observability_config.collect_model_execute_time):
                 orig_model_execute_time = intermediate_tensors.tensors.get(
                     "model_execute_time", torch.tensor(0)).item()
-
+        logger.info(f"execute_model:{self.kv_cache=}")
         output = self.model_runner.execute_model(
             model_input=model_input,
             kv_caches=self.kv_cache[worker_input.virtual_engine]
@@ -553,6 +553,7 @@ class WorkerWrapperBase:
         """
         kwargs = all_kwargs[self.rpc_rank]
         self.vllm_config = kwargs.get("vllm_config")
+        logger.info(f"worker_base 0:{self.vllm_config.cache_config=}")
         assert self.vllm_config is not None, (
             "vllm_config is required to initialize the worker")
         enable_trace_function_call_for_thread(self.vllm_config)
@@ -595,7 +596,9 @@ class WorkerWrapperBase:
                 logger.info(
                     "Injected %s into %s for extended collective_rpc calls %s",
                     worker_extension_cls, worker_class, extended_calls)
+        logger.info(f"worker_base 1:{self.vllm_config.cache_config=}")
         with set_current_vllm_config(self.vllm_config):
+            logger.info(f"worker_base 2:{self.vllm_config.cache_config=}")
             # To make vLLM config available during worker initialization
             self.worker = worker_class(**kwargs)
             assert self.worker is not None
