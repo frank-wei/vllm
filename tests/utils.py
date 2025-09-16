@@ -147,7 +147,6 @@ class RemoteOpenAIServer:
 
         # download the model before starting the server to avoid timeout
         is_local = os.path.isdir(model)
-        print(f"==5:, {vllm_serve_args}")
         if not is_local:
             engine_args = AsyncEngineArgs.from_cli_args(args)
             model_config = engine_args.create_model_config()
@@ -157,7 +156,7 @@ class RemoteOpenAIServer:
             model_loader.download_model(model_config)
 
         self._start_server(model, vllm_serve_args, env_dict)
-        max_wait_seconds = max_wait_seconds or 10
+        max_wait_seconds = max_wait_seconds or 240
         self._wait_for_server(url=self.url_for("health"),
                               timeout=max_wait_seconds)
 
@@ -415,7 +414,7 @@ def _test_chat(
     # test with text prompt
     chat_response = client.chat.completions.create(model=model,
                                                    messages=messages,
-                                                   max_tokens=2,
+                                                   max_tokens=5,
                                                    temperature=0.0)
 
     print(f"test_chat with prompt: {prompt}")
@@ -636,8 +635,8 @@ def compare_all_settings(model: str,
                 results += _test_embeddings(client, model, prompt)
             else:
                 raise ValueError(f"Unknown method: {method}")
-            print(f"===========results:{results}")
-            exit()
+            # print(f"===========results:{results}")
+            # exit()
             if i > 0:
                 # if any setting fails, raise an error early
                 ref_args = all_args[0]

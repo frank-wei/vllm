@@ -1600,7 +1600,6 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
                 decode_q = get_dcp_group().all_gather(decode_q, dim=1)
 
             # call decode attn
-            logger.info(f"MLACommonImpl: {decode_q.shape=}, {kv_cache.shape=}")
             attn_out, lse = self._forward_decode(decode_q, kv_cache,
                                                  attn_metadata, layer)
             logger.info(f"MLACommonImpl before cor: {attn_out.shape=}, {lse.shape=}")
