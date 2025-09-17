@@ -1603,6 +1603,8 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             # call decode attn
             attn_out, lse = self._forward_decode(decode_q, kv_cache,
                                                  attn_metadata, layer)
+            logger.info(f"MLACommonImpl attention: {attn_out}")
+            logger.info(f"MLACommonImpl attention lse: {lse}")
             logger.info(f"MLACommonImpl before cor: {attn_out.shape=}, {lse.shape=}")
             # recorect dcp attn_out with lse.
             if self.dcp_world_size > 1:
@@ -1611,4 +1613,5 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
             # v_up projection
             logger.info(f"MLACommonImpl after cor: {attn_out.shape=}, {lse.shape=}")
             output[:num_decode_tokens] = self._v_up_proj(attn_out)
+            logger.info(f"MLACommonImpl after v_up_proj: {output=}")
         return output_padded

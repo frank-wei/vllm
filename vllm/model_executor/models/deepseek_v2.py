@@ -65,7 +65,8 @@ from .interfaces import MixtureOfExperts, SupportsLoRA, SupportsPP
 from .utils import (PPMissingLayer, is_pp_missing_parameter,
                     make_empty_intermediate_tensors_factory, make_layers,
                     maybe_prefix)
-
+import logging
+logger = logging.getLogger(__name__)
 
 class DeepseekV2MLP(nn.Module):
 
@@ -781,10 +782,12 @@ class DeepseekV2Model(nn.Module):
             assert intermediate_tensors is not None
             hidden_states = intermediate_tensors["hidden_states"]
             residual = intermediate_tensors["residual"]
-
+        logger.info(f"DSV2: before layer: {hidden_states=}")
+        logger.info(f"DSV2: before layer: {residual=}")
         for layer in islice(self.layers, self.start_layer, self.end_layer):
             hidden_states, residual = layer(positions, hidden_states, residual)
-
+            logger.info(f"DSV2: after layer: {hidden_states=}")
+            logger.info(f"DSV2: after layer: {residual=}")
         if not get_pp_group().is_last_rank:
             return IntermediateTensors({
                 "hidden_states": hidden_states,

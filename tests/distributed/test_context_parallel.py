@@ -69,9 +69,9 @@ class CPTestSettings:
         load_format: Optional[str] = None,
     ):
         parallel_setups = []
-        for eager_mode_val in [False]:
+        for eager_mode_val in [True]:
             for pp_multiplier in [1]:
-                for dcp_multiplier in [4]:
+                for dcp_multiplier in [2, 4]:
                     for chunked_prefill_val in [True]:
                         parallel_setups.append(
                             ParallelSetup(tp_size=tp_base,
@@ -231,12 +231,7 @@ CP_TEST_MODELS = [
     # [LANGUAGE GENERATION]
     "deepseek-ai/DeepSeek-V2-Lite-Chat",
 ]
-aa = [
-        params for model_id, settings in CP_TEXT_GENERATION_MODELS.items()
-        for params in settings.iter_params(model_id)
-        if model_id in CP_TEST_MODELS
-    ]
-print(f"==={aa}")
+
 
 @pytest.mark.parametrize(
     ("model_id", "parallel_setup", "distributed_backend", "vllm_major_version",
@@ -247,7 +242,7 @@ print(f"==={aa}")
     #     if model_id in CP_TEST_MODELS
     # ],
     [('deepseek-ai/DeepSeek-V2-Lite-Chat', ParallelSetup(tp_size=2,pp_size=1,\
-        dcp_size=2, eager_mode=True, chunked_prefill=True),'mp','1','auto',\
+        dcp_size=1, eager_mode=True, chunked_prefill=True),'mp','1','auto',\
         CPTestOptions(multi_node_only=False, load_format=None)),
     ],
 )
@@ -268,5 +263,5 @@ def test_cp_generation(
                         runner,
                         test_options,
                         num_gpus_available,
-                        method="generate_chat",
+                        method="generate",
                         is_multimodal=False)

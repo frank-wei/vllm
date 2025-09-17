@@ -179,6 +179,7 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
                              attn_metadata.decode.block_table,
                              attn_metadata.decode.seq_lens, attn_logits,
                              num_kv_splits, self.scale, PAGE_SIZE)
-        logger.info(f"==== {lse=}")
+        logger.info(f"==== attention={o}")
+        logger.info(f"==== lse={lse}")
         logger.info(f"TritonMLAImpl._forward_decode: o.shape={o.shape}, lse.shape={lse.shape}, q.shape={q.unsqueeze(1).shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
         return o, lse

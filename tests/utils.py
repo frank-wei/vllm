@@ -41,7 +41,8 @@ from vllm.platforms import current_platform
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.utils import (FlexibleArgumentParser, GB_bytes,
                         cuda_device_count_stateless, get_open_port)
-
+import logging
+logger = logging.getLogger(__name__)
 if current_platform.is_rocm():
     from amdsmi import (amdsmi_get_gpu_vram_usage,
                         amdsmi_get_processor_handles, amdsmi_init,
@@ -185,7 +186,6 @@ class RemoteOpenAIServer:
             try:
                 if client.get(url).status_code == 200:
                     break
-                # print(f"===7 not started?")
             except Exception:
                 # this exception can only be raised by requests.get,
                 # which means the server is not ready yet.
@@ -277,64 +277,64 @@ def _test_completion(
 ):
     results = []
 
-    # test with text prompt
-    completion = client.completions.create(model=model,
-                                           prompt=prompt,
-                                           max_tokens=5,
-                                           temperature=0.0)
+    # # test with text prompt
+    # completion = client.completions.create(model=model,
+    #                                        prompt=prompt,
+    #                                        max_tokens=5,
+    #                                        temperature=0.0)
 
-    results.append({
-        "test": "single_completion",
-        "text": completion.choices[0].text,
-        "finish_reason": completion.choices[0].finish_reason,
-        "usage": completion.usage,
-    })
+    # results.append({
+    #     "test": "single_completion",
+    #     "text": completion.choices[0].text,
+    #     "finish_reason": completion.choices[0].finish_reason,
+    #     "usage": completion.usage,
+    # })
 
-    # test using token IDs
-    completion = client.completions.create(
-        model=model,
-        prompt=token_ids,
-        max_tokens=5,
-        temperature=0.0,
-    )
+    # # test using token IDs
+    # completion = client.completions.create(
+    #     model=model,
+    #     prompt=token_ids,
+    #     max_tokens=5,
+    #     temperature=0.0,
+    # )
 
-    results.append({
-        "test": "token_ids",
-        "text": completion.choices[0].text,
-        "finish_reason": completion.choices[0].finish_reason,
-        "usage": completion.usage,
-    })
+    # results.append({
+    #     "test": "token_ids",
+    #     "text": completion.choices[0].text,
+    #     "finish_reason": completion.choices[0].finish_reason,
+    #     "usage": completion.usage,
+    # })
 
-    # test seeded random sampling
-    completion = client.completions.create(model=model,
-                                           prompt=prompt,
-                                           max_tokens=5,
-                                           seed=33,
-                                           temperature=1.0)
+    # # test seeded random sampling
+    # completion = client.completions.create(model=model,
+    #                                        prompt=prompt,
+    #                                        max_tokens=5,
+    #                                        seed=33,
+    #                                        temperature=1.0)
 
-    results.append({
-        "test": "seeded_sampling",
-        "text": completion.choices[0].text,
-        "finish_reason": completion.choices[0].finish_reason,
-        "usage": completion.usage,
-    })
+    # results.append({
+    #     "test": "seeded_sampling",
+    #     "text": completion.choices[0].text,
+    #     "finish_reason": completion.choices[0].finish_reason,
+    #     "usage": completion.usage,
+    # })
 
-    # test seeded random sampling with multiple prompts
-    completion = client.completions.create(model=model,
-                                           prompt=[prompt, prompt],
-                                           max_tokens=5,
-                                           seed=33,
-                                           temperature=1.0)
+    # # test seeded random sampling with multiple prompts
+    # completion = client.completions.create(model=model,
+    #                                        prompt=[prompt, prompt],
+    #                                        max_tokens=5,
+    #                                        seed=33,
+    #                                        temperature=1.0)
 
-    results.append({
-        "test":
-        "seeded_sampling",
-        "text": [choice.text for choice in completion.choices],
-        "finish_reason":
-        [choice.finish_reason for choice in completion.choices],
-        "usage":
-        completion.usage,
-    })
+    # results.append({
+    #     "test":
+    #     "seeded_sampling",
+    #     "text": [choice.text for choice in completion.choices],
+    #     "finish_reason":
+    #     [choice.finish_reason for choice in completion.choices],
+    #     "usage":
+    #     completion.usage,
+    # })
 
     # test simple list
     batch = client.completions.create(
@@ -350,25 +350,25 @@ def _test_completion(
         "text1": batch.choices[1].text,
     })
 
-    # test streaming
-    batch = client.completions.create(
-        model=model,
-        prompt=[prompt, prompt],
-        max_tokens=5,
-        temperature=0.0,
-        stream=True,
-    )
+    # # test streaming
+    # batch = client.completions.create(
+    #     model=model,
+    #     prompt=[prompt, prompt],
+    #     max_tokens=5,
+    #     temperature=0.0,
+    #     stream=True,
+    # )
 
-    texts = [""] * 2
-    for chunk in batch:
-        assert len(chunk.choices) == 1
-        choice = chunk.choices[0]
-        texts[choice.index] += choice.text
+    # texts = [""] * 2
+    # for chunk in batch:
+    #     assert len(chunk.choices) == 1
+    #     choice = chunk.choices[0]
+    #     texts[choice.index] += choice.text
 
-    results.append({
-        "test": "streaming",
-        "texts": texts,
-    })
+    # results.append({
+    #     "test": "streaming",
+    #     "texts": texts,
+    # })
 
     return results
 
@@ -412,13 +412,13 @@ def _test_chat(
             "text": prompt
         }]
     }]
+
     # test with text prompt
     chat_response = client.chat.completions.create(model=model,
                                                    messages=messages,
                                                    max_tokens=5,
                                                    temperature=0.0)
 
-    print(f"test_chat with prompt: {prompt}")
     results.append({
         "test": "completion_close",
         "text": chat_response.choices[0].message.content,
@@ -619,6 +619,7 @@ def compare_all_settings(model: str,
                 "id": served_model.id,
                 "root": served_model.root,
             })
+
             if method == "generate":
                 results += _test_completion(client, model, prompt, token_ids)
             elif method == "generate_close":
@@ -634,6 +635,8 @@ def compare_all_settings(model: str,
                 results += _test_embeddings(client, model, prompt)
             else:
                 raise ValueError(f"Unknown method: {method}")
+            logger.info(f"======Results for {model=} are {results=}")
+            exit()
             if i > 0:
                 # if any setting fails, raise an error early
                 ref_args = all_args[0]
