@@ -11,4 +11,4 @@ export CUDA_VISIBLE_DEVICES=6,7
 export VLLM_USE_V1=1
 export VLLM_ATTENTION_BACKEND=TRITON_MLA
 export VLLM_LOG_LEVEL=DEBUG
-pytest tests/distributed/test_context_parallel.py -s
+pytest tests/distributed/test_context_parallel.py -s --log-cli-level=INFO

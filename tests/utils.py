@@ -604,7 +604,6 @@ def compare_all_settings(model: str,
             args = args + ["--load-format", envs.VLLM_TEST_FORCE_LOAD_FORMAT]
         compare_results: list = []
         results = ref_results if i == 0 else compare_results
-        print(f"===========0 args:{args}")
         with RemoteOpenAIServer(model,
                                 args,
                                 env_dict=env,
@@ -620,7 +619,6 @@ def compare_all_settings(model: str,
                 "id": served_model.id,
                 "root": served_model.root,
             })
-            print(f"===========1")
             if method == "generate":
                 results += _test_completion(client, model, prompt, token_ids)
             elif method == "generate_close":
@@ -636,8 +634,6 @@ def compare_all_settings(model: str,
                 results += _test_embeddings(client, model, prompt)
             else:
                 raise ValueError(f"Unknown method: {method}")
-            # print(f"===========results:{results}")
-            # exit()
             if i > 0:
                 # if any setting fails, raise an error early
                 ref_args = all_args[0]
