@@ -164,11 +164,11 @@ class CudaPlatformBase(Platform):
                 use_flashmla = envs.VLLM_ATTENTION_BACKEND == "FLASHMLA"
                 use_cutlass_mla = envs.VLLM_ATTENTION_BACKEND == "CUTLASS_MLA"
                 use_flashinfer_mla = envs.VLLM_ATTENTION_BACKEND == "FLASHINFER_MLA"
-                use_triton_mla = envs.VLLM_ATTENTION_BACKEND == "TRITON_MLA"
+            #     use_triton_mla = envs.VLLM_ATTENTION_BACKEND == "TRITON_MLA"
 
-            if use_triton_mla:
-                cache_config.block_size = 64
-                logger.info("Forcing kv cache block size to 64 for Triton backend.")
+            # if use_triton_mla:
+            #     cache_config.block_size = 64
+            #     logger.info("Forcing kv cache block size to 64 for Triton backend.")
 
             from vllm.attention.ops.flashmla import is_flashmla_supported
 
