@@ -635,8 +635,7 @@ def compare_all_settings(model: str,
                 results += _test_embeddings(client, model, prompt)
             else:
                 raise ValueError(f"Unknown method: {method}")
-            logger.info(f"======Results for {model=} are {results=}")
-            exit()
+            
             if i > 0:
                 # if any setting fails, raise an error early
                 ref_args = all_args[0]

@@ -242,7 +242,7 @@ CP_TEST_MODELS = [
     #     if model_id in CP_TEST_MODELS
     # ],
     [('deepseek-ai/DeepSeek-V2-Lite-Chat', ParallelSetup(tp_size=2,pp_size=1,\
-        dcp_size=1, eager_mode=True, chunked_prefill=True),'mp','1','auto',\
+        dcp_size=2, eager_mode=True, chunked_prefill=True),'mp','1','auto',\
         CPTestOptions(multi_node_only=False, load_format=None)),
     ],
 )

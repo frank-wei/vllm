@@ -481,6 +481,7 @@ def _fwd_kernel_stage2(
     stride_mid_os,
     stride_obs,
     stride_oh,
+    stride_lse_bs,
     NUM_KV_SPLITS: tl.constexpr,
     BLOCK_DV: tl.constexpr,
     Lv: tl.constexpr,
@@ -517,10 +518,8 @@ def _fwd_kernel_stage2(
             acc *= old_scale
             exp_logic = tl.exp(tlogic - n_e_max)
             acc += exp_logic * tv
-
             e_sum = e_sum * old_scale + exp_logic
             e_max = n_e_max
-
     tl.store(
         o + cur_batch * stride_obs + cur_head * stride_oh + offs_d,
         acc / e_sum,
@@ -528,11 +527,9 @@ def _fwd_kernel_stage2(
     )
     lse_val = e_max + tl.log(e_sum)
     tl.store(
-        lse + cur_batch * stride_obs + cur_head * stride_oh + offs_d,
+        lse + cur_batch * stride_lse_bs + cur_head,
         lse_val,
-        mask=mask_d,
     )
-
 
 def _decode_softmax_reducev_fwd(
     logits,
@@ -558,8 +555,6 @@ def _decode_softmax_reducev_fwd(
             "matrix_instr_nonkdim": 16,
             "kpack": 2
         }
-    # import torch
-    # lse = torch.empty((batch, head_num), dtype=q.dtype, device=o.device)
     grid = (batch, head_num)
     _fwd_kernel_stage2[grid](
         logits,
@@ -571,6 +566,7 @@ def _decode_softmax_reducev_fwd(
         logits.stride(2),
         o.stride(0),
         o.stride(1),
+        lse.stride(0),
         NUM_KV_SPLITS=NUM_KV_SPLITS,
         BLOCK_DV=BLOCK_DV,
         Lv=Lv,
@@ -578,7 +574,6 @@ def _decode_softmax_reducev_fwd(
         num_stages=2,
         **extra_kargs,
     )
-    # print(f"====={lse=}")
 
 
 def decode_attention_fwd_normal(
@@ -610,7 +605,7 @@ def decode_attention_fwd_normal(
                                 num_kv_splits)
 
 
-def decode_attention_fwd_grouped(
+def decode_attention_fwd_grouped(   # MLA
     q,
     k_buffer,
     v_buffer,

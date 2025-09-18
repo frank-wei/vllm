@@ -167,7 +167,9 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
             dtype=torch.float32,
             device=q.device,
         )
-
+        logger.info(f"TritonMLAImpl._forward_decode: q={q}")
+        logger.info(f"TritonMLAImpl._forward_decode: kv_c_and_k_pe_cache={kv_c_and_k_pe_cache}")
+        logger.info(f"TritonMLAImpl._forward_decode: original o={o}")
         # Add a head dim of 1
         kv_c_and_k_pe_cache = kv_c_and_k_pe_cache.unsqueeze(2)
         kv_c_cache = kv_c_and_k_pe_cache[..., :self.kv_lora_rank]
@@ -175,11 +177,12 @@ class TritonMLAImpl(MLACommonImpl[MLACommonMetadata]):
 
         # Run MQA
         logger.info(f"TritonMLAImpl._forward_decode: q.shape={q.shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
+       
         decode_attention_fwd(q, kv_c_and_k_pe_cache, kv_c_cache, o, lse,
                              attn_metadata.decode.block_table,
                              attn_metadata.decode.seq_lens, attn_logits,
                              num_kv_splits, self.scale, PAGE_SIZE)
-        logger.info(f"==== attention={o}")
-        logger.info(f"==== lse={lse}")
+        # logger.info(f"==== attention={o}")
+        # logger.info(f"==== lse={lse}")
         logger.info(f"TritonMLAImpl._forward_decode: o.shape={o.shape}, lse.shape={lse.shape}, q.shape={q.unsqueeze(1).shape}, kv_c_and_k_pe_cache.shape={kv_c_and_k_pe_cache.shape}")
         return o, lse
