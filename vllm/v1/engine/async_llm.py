@@ -45,6 +45,8 @@ from vllm.v1.executor.abstract import Executor
 from vllm.v1.metrics.loggers import StatLoggerFactory, StatLoggerManager
 from vllm.v1.metrics.prometheus import shutdown_prometheus
 from vllm.v1.metrics.stats import IterationStats
+from vllm.sampling_params import GuidedDecodingParams
+import json
 
 logger = init_logger(__name__)
 
@@ -371,6 +373,72 @@ class AsyncLLM(EngineClient):
                 truncate_prompt_tokens,
                 tokenization_kwargs,
             )
+            logger.info(f"===async llm: genreating {request_id=}")
+            logger.info(f"===async llm: genreating {prompt=}")
+            sampling_params.max_tokens = 130784
+            sampling_params.temperature = 1.0
+            sampling_params.stop_token_ids = [200002, 200012]
+
+            s_tag_obj = {
+                "type":
+                "structural_tag",
+                # method 1
+                "structures": [{
+                    "begin": "to=container.exec code<|message|>",
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^\\{\"cmd\":\\[\"bash\",\"-lc\",",
+                    },
+                    "end": "PY\"\\]\\}"
+                }],
+                "triggers": ["to=container.exec code"]
+                # ^ method 1
+
+                # method 2
+                # "structures": [
+                #     {
+                #         "begin": "{\"cmd\":[",
+                #         "schema": {
+                #             "type": "string",
+                #             "pattern": "\"bash\",\"-lc\",\"python"
+                #         },
+                #         "end": "]}"
+                #     }
+                # ],
+                # "triggers": ["{\"cmd\":["]
+                # ^method 2
+                # method 3
+                # "structures": [
+                #     {
+                #         "begin": "to=container.exec code<|message|>",
+                #         "schema": {
+                #             "type": "object",
+                #             "properties": {
+                #                 "cmd": {
+                #                     "type": "array",
+                #                     "prefixItems": [
+                #                         {"const": "bash"},
+                #                         {"const": "-lc"},
+                #                         {"type": "string"}
+                #                     ],
+                #                     "minItems": 3
+                #                 }
+                #             },
+                #             "required": ["cmd"],
+                #             "additionalProperties": False
+                            
+                #         },
+                #         "end": "}<|call|>"
+                #     }
+                # ],
+                # "triggers": ["to=container.exec"]
+                # ^method 3
+            }
+            guided_decoding = GuidedDecodingParams.from_optional(structural_tag=json.dumps(s_tag_obj))
+            sampling_params.guided_decoding = guided_decoding
+            prompt["prompt_token_ids"] = [200006, 17360, 200008, 3575, 553, 17554, 162016, 11, 261, 4410, 6439, 2359, 22203, 656, 7788, 17527, 558, 87447, 100594, 25, 220, 1323, 19, 12, 3218, 198, 6576, 3521, 25, 220, 1323, 20, 12, 3114, 12, 2040, 279, 30377, 289, 25, 14093, 279, 2, 20574, 279, 877, 9282, 279, 393, 67889, 395, 72712, 483, 261, 9282, 11, 395, 4994, 11, 261, 91238, 9282, 7621, 350, 6896, 53637, 11, 3926, 220, 16, 8869, 8869, 19176, 350, 8673, 166163, 11, 3926, 220, 16, 8869, 8869, 446, 4797, 9282, 95359, 9609, 290, 4733, 328, 290, 6348, 28246, 432, 1381, 448, 25383, 62975, 11264, 41551, 538, 350, 427, 1606, 538, 8, 461, 11854, 2483, 6, 382, 920, 558, 2493, 25398, 314, 11350, 25, 405, 18804, 25, 1621, 72528, 11854, 2483, 8528, 1621, 412, 1596, 6457, 8528, 1621, 412, 32264, 8528, 2086, 412, 6073, 8528, 2817, 412, 1428, 8528, 1621, 412, 9263, 871, 1062, 502, 92, 602, 9819, 9282, 279, 2, 13888, 18403, 25, 8450, 11, 1721, 13, 21030, 2804, 413, 7360, 395, 1753, 3176, 13, 200007, 200006, 1428, 200008, 976, 101123, 5204, 483, 42006, 548, 88, 56980, 42923, 17, 40412, 19, 3, 382, 93819, 548, 1910, 42923, 59, 156415, 61526, 9446, 34421, 7480, 2846, 290, 12839, 13, 623, 5746, 2438, 306, 290, 19062, 196051, 1919, 290, 4756, 101123, 5204, 326, 1617, 3621, 64353, 853, 548, 88, 3, 12, 140563, 126456, 63757, 90, 64, 66126, 64991, 90, 65, 6478, 90, 66, 61526, 11, 1919, 548, 64, 108989, 548, 65, 108989, 326, 548, 66, 3, 553, 8841, 54912, 11, 326, 548, 64, 3, 326, 548, 66, 3, 553, 19919, 9197, 13, 9764, 548, 64, 76609, 114860, 25507, 793, 8256, 5207, 5983, 656, 5983, 13, 7649, 220, 17, 18608, 395, 22752, 170733, 13, 200007, 200006, 173781]
+            logger.info(f"===async llm: generating {sampling_params=}")
+            logger.info(f"===async llm: reassign prompt id:  {prompt=}")
 
             q = await self.add_request(
                 request_id,
@@ -390,6 +458,7 @@ class AsyncLLM(EngineClient):
                 # Note: drain queue without await if possible (avoids
                 # task switching under load which helps performance).
                 out = q.get_nowait() or await q.get()
+                logger.info(f"===async llm: output:  {out=}")
 
                 # Note: both OutputProcessor and EngineCore handle their
                 # own request cleanup based on finished.
